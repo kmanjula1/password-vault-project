@@ -1,4 +1,15 @@
-// pages/vault/index.tsx
+
+// Before (in pages/vault/index.tsx):
+useEffect(() => {
+  fetchEntries();
+  // ... other logic
+}, [/* missing 'fetchEntries' */]);
+
+// After (Fix):
+useEffect(() => {
+  fetchEntries();
+  // ... other logic
+}, [fetchEntries]);// pages/vault/index.tsx
 import React, { FC, useState, useEffect, useCallback, useMemo } from "react";
 import CryptoJS from "crypto-js";
 
@@ -186,4 +197,8 @@ const Vault: FC = () => {
 };
 
 export default Vault;
+
+function fetchEntries() {
+  throw new Error("Function not implemented.");
+}
 
