@@ -1,41 +1,53 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+// app/api/register/route.ts (App Router Conversion)
+
 import { dbConnect } from '@/lib/db';
 import User from '@/models/User';
+import { NextRequest, NextResponse } from 'next/server';
 
-type Data = {
-  success: boolean;
-  message?: string;
-  user?: {
-    id: string;
-    email: string;
-  };
-};
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<Data>
-) {
+export async function POST(req: NextRequest) {
   await dbConnect();
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method not allowed' });
-  }
+  // 1. App Router reads the body using req.json()
+  const { email, password }: { email: string; password: string } = await req.json();
 
-  const { email, password }: { email: string; password: string } = req.body;
+  if (req.method !== 'POST') {
+    // App Router handles method checks automatically, but good to keep basic validation
+    return NextResponse.json(
+      { success: false, message: 'Method not allowed' },
+      { status: 405 }
+    );
+  }
+  
+  if (!email || !password) {
+     return NextResponse.json(
+      { success: false, message: 'Email and password required' },
+      { status: 400 }
+    );
+  }
 
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
+      return NextResponse.json(
+        { success: false, message: 'User already exists' },
+        { status: 400 }
+      );
     }
 
     const newUser = await User.create({ email, password });
 
-    return res.status(201).json({ 
-      success: true, 
-      user: { id: newUser._id.toString(), email: newUser.email } 
-    });
+    return NextResponse.json(
+      { 
+        success: true, 
+        user: { id: newUser._id.toString(), email: newUser.email } 
+      },
+      { status: 201 }
+    );
   } catch (_err) {
-    return res.status(500).json({ success: false, message: 'Server error' });
+    // This is the clean catch block to resolve your last warning!
+    return NextResponse.json(
+      { success: false, message: 'Server error' },
+      { status: 500 }
+    );
   }
 }
