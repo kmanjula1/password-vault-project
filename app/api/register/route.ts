@@ -35,7 +35,7 @@ export default async function handler(
       success: true, 
       user: { id: newUser._id.toString(), email: newUser.email } 
     });
-  } catch (err) {
+  } catch (_err) {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 }

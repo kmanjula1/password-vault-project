@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import dbConnect from "../../../lib/db";
+import { dbConnect } from '../../../lib/db';
 import User from "../../../models/User";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

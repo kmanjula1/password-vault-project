@@ -1,94 +1,57 @@
+// pages/vault/index.tsx
+import React, { FC, useState, useEffect } from "react";
 
-// Before (in pages/vault/index.tsx):
-useEffect(() => {
-  fetchEntries();
-  // ... other logic
-}, [/* missing 'fetchEntries' */]);
-
-// After (Fix):
-useEffect(() => {
-  fetchEntries();
-  // ... other logic
-}, [fetchEntries]);// pages/vault/index.tsx
-import React, { FC, useState, useEffect, useCallback, useMemo } from "react";
-import CryptoJS from "crypto-js";
-
-// Entry interface
-interface Entry {
+// Placeholder types for Vault entries
+interface VaultEntry {
   _id: string;
   title: string;
   username: string;
   password: string;
 }
 
+// Placeholder encrypt/decrypt functions
+const encrypt = (text: string, key: string) => text; // Replace with real logic
+const decrypt = (text: string, key: string) => text; // Replace with real logic
+
 const Vault: FC = () => {
-  // State declarations
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState<VaultEntry[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [masterKey, setMasterKey] = useState("");
-  const [search, setSearch] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
-  const [loaded, setLoaded] = useState(false);
-
-  // Encrypt & decrypt helpers
-  const encrypt = useCallback(
-    (text: string) => CryptoJS.AES.encrypt(text, masterKey).toString(),
-    [masterKey]
-  );
-
-  const decrypt = useCallback(
-    (cipher: string) => {
-      try {
-        return CryptoJS.AES.decrypt(cipher, masterKey).toString(CryptoJS.enc.Utf8);
-      } catch {
-        return "";
-      }
-    },
-    [masterKey]
-  );
+  const masterKey = "dummy-key"; // Replace with your actual key
 
   // Fetch entries from API
-  const fetchEntries = useCallback(async () => {
-    if (!masterKey) return;
+  const fetchEntries = async () => {
     try {
-      const res = await fetch("/api/entries", {
-        headers: { Authorization: `Bearer ${masterKey}` },
-      });
-      if (res.ok) {
-        const data: Entry[] = await res.json();
-        setEntries(data);
-      } else {
-        setEntries([]);
-      }
+      const res = await fetch("/api/entries");
+      const data: VaultEntry[] = await res.json();
+      setEntries(data);
     } catch (err) {
-      console.error(err);
-      setEntries([]);
+      console.error("Error fetching entries:", err);
     }
-  }, [masterKey]);
+  };
 
-  // Load entries only when "Load Vault" is clicked
   useEffect(() => {
-    if (loaded) fetchEntries();
-  }, [loaded, fetchEntries]);
+    fetchEntries();
+  }, []);
 
-  // Add a new entry
-  const addEntry = async () => {
-    if (!masterKey || !newTitle || !newUsername || !newPassword) return;
+  const handleAddEntry = async () => {
     try {
+      const encryptedEntry = {
+        title: encrypt(newTitle, masterKey),
+        username: encrypt(newUsername, masterKey),
+        password: encrypt(newPassword, masterKey),
+      };
+
       const res = await fetch("/api/entries", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${masterKey}`,
         },
-        body: JSON.stringify({
-          title: encrypt(newTitle),
-          username: encrypt(newUsername),
-          password: encrypt(newPassword),
-        }),
+        body: JSON.stringify(encryptedEntry),
       });
+
       if (res.ok) {
         setNewTitle("");
         setNewUsername("");
@@ -96,99 +59,50 @@ const Vault: FC = () => {
         fetchEntries();
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error adding entry:", err);
     }
   };
 
-  // Delete an entry
-  const deleteEntry = async (id: string) => {
-    try {
-      const res = await fetch(`/api/entries/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${masterKey}` },
-      });
-      if (res.ok) fetchEntries();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Copy password to clipboard
-  const copyToClipboard = (text: string) => {
+  const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopyMessage("Copied!");
     setTimeout(() => setCopyMessage(""), 2000);
   };
 
-  // Decrypt entries and memoize
-  const decryptedEntries = useMemo(
-    () =>
-      entries.map((entry) => ({
-        ...entry,
-        title: decrypt(entry.title),
-        username: decrypt(entry.username),
-        password: decrypt(entry.password),
-      })),
-    [entries, decrypt]
-  );
-
-  const filteredEntries = useMemo(
-    () =>
-      decryptedEntries.filter((entry) =>
-        entry.title.toLowerCase().includes(search.toLowerCase())
-      ),
-    [decryptedEntries, search]
-  );
-
   return (
-    <div className="vault-container">
-      <h1>Password Vault</h1>
-
-      <input
-        type="text"
-        placeholder="Master key"
-        value={masterKey}
-        onChange={(e) => setMasterKey(e.target.value)}
-      />
-      <button onClick={() => setLoaded(true)}>Load Vault</button>
-
-      <input
-        type="text"
-        placeholder="Search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+    <div>
+      <h1>Vault</h1>
 
       <div>
         <input
-          type="text"
           placeholder="Title"
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
         />
         <input
-          type="text"
           placeholder="Username"
           value={newUsername}
           onChange={(e) => setNewUsername(e.target.value)}
         />
         <input
-          type="password"
           placeholder="Password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
         />
-        <button onClick={addEntry}>Add Entry</button>
+        <button onClick={handleAddEntry}>Add Entry</button>
       </div>
 
-      {copyMessage && <div>{copyMessage}</div>}
+      <p>{copyMessage}</p>
 
       <ul>
-        {filteredEntries.map((entry) => (
+        {entries.map((entry) => (
           <li key={entry._id}>
-            <strong>{entry.title}</strong> | {entry.username} | {entry.password}
-            <button onClick={() => copyToClipboard(entry.password)}>Copy</button>
-            <button onClick={() => deleteEntry(entry._id)}>Delete</button>
+            <strong>{decrypt(entry.title, masterKey)}</strong> |{" "}
+            {decrypt(entry.username, masterKey)} |{" "}
+            {decrypt(entry.password, masterKey)}{" "}
+            <button onClick={() => handleCopy(decrypt(entry.password, masterKey))}>
+              Copy Password
+            </button>
           </li>
         ))}
       </ul>
@@ -197,8 +111,3 @@ const Vault: FC = () => {
 };
 
 export default Vault;
-
-function fetchEntries() {
-  throw new Error("Function not implemented.");
-}
-

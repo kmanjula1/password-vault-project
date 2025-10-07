@@ -44,7 +44,7 @@ export default async function handler(
     });
 
     return res.status(200).json({ success: true, token });
-  } catch (err) {
+  } catch (_err) {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 }
