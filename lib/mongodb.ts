@@ -1,35 +1,38 @@
-// lib/mongodb.ts
+// lib/db.ts
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    "⚠ Please define the MONGODB_URI environment variable inside .env.local"
-  );
-}
-
+// Define a type for cached connection
 type MongooseCache = {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
 };
 
+// Extend global for hot reload support in Next.js
 declare global {
-  // For Next.js hot reload
-  var mongoose: MongooseCache;
+  var mongooseCache: MongooseCache | undefined;
 }
 
-let cached: MongooseCache = global.mongoose || { conn: null, promise: null };
+// Initialize cached connection
+const cached: MongooseCache =
+  global.mongooseCache || (global.mongooseCache = { conn: null, promise: null } as MongooseCache);
 
-export async function connectToDatabase() 
- {
+export async function dbConnect() {
+  // Local constant ensures TypeScript knows this is definitely a string
+  const MONGODB_URI: string = process.env.MONGODB_URI ?? "";
+  if (!MONGODB_URI) {
+    throw new Error("Please define the MONGODB_URI in .env.local");
+  }
+
+  // Return cached connection if it exists
   if (cached.conn) return cached.conn;
 
+  // Create a new connection if it doesn't exist
   if (!cached.promise) {
     cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => mongoose);
   }
 
   cached.conn = await cached.promise;
-  global.mongoose = cached;
   return cached.conn;
 }
+
+export default dbConnect;
