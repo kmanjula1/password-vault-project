@@ -1,18 +1,28 @@
+// lib/mongodb.ts
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 
 if (!MONGODB_URI) {
-  throw new Error("⚠ Please define the MONGODB_URI environment variable inside .env.local");
+  throw new Error(
+    "⚠ Please define the MONGODB_URI environment variable inside .env.local"
+  );
 }
 
-let cached = (global as any).mongoose;
+type MongooseCache = {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+};
 
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+declare global {
+  // For Next.js hot reload
+  var mongoose: MongooseCache;
 }
 
-export async function connectToDatabase() {
+let cached: MongooseCache = global.mongoose || { conn: null, promise: null };
+
+export async function connectToDatabase() 
+ {
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
@@ -20,5 +30,6 @@ export async function connectToDatabase() {
   }
 
   cached.conn = await cached.promise;
+  global.mongoose = cached;
   return cached.conn;
-} 
+}
