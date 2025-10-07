@@ -7,7 +7,7 @@ type MongooseCache = {
   promise: Promise<typeof mongoose> | null;
 };
 
-// Extend global for hot reload support in Next.js
+// Extend global for Next.js hot reload support
 declare global {
   var mongooseCache: MongooseCache | undefined;
 }
@@ -17,10 +17,9 @@ const cached: MongooseCache =
   global.mongooseCache || (global.mongooseCache = { conn: null, promise: null } as MongooseCache);
 
 export async function dbConnect() {
-  // Local constant ensures TS knows this is a string
   const MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI) {
-    throw new Error("Please define the MONGODB_URI in .env.local");
+    throw new Error("Please define MONGODB_URI in .env.local or in Vercel environment variables");
   }
 
   // Return cached connection if it exists
@@ -28,8 +27,7 @@ export async function dbConnect() {
 
   // Create a new connection if it doesn't exist
   if (!cached.promise) {
-    // Non-null assertion fixes the TS2345 error
-    cached.promise = mongoose.connect(MONGODB_URI!).then((mongoose) => mongoose);
+    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => mongoose);
   }
 
   cached.conn = await cached.promise;
