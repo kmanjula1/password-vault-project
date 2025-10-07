@@ -1,34 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
-import dbConnect from "@/lib/db";
-import User from "@/models/User";
-import * as argon2 from "argon2";
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { dbConnect } from '@/lib/db';
+import User, { IUser } from '@/models/User';
+import * as argon2 from 'argon2';
+import jwt from 'jsonwebtoken';
 
-export async function POST(req: NextRequest) {
+type Data = {
+  success: boolean;
+  token?: string;
+  message?: string;
+};
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Data>
+) {
+  await dbConnect();
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
   try {
-    // Connect to MongoDB
-    await dbConnect();
+    const { email, password } = req.body as { email: string; password: string };
 
-    // Parse request body
-    const { email, password } = await req.json();
     if (!email || !password) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+      return res.status(400).json({ success: false, message: 'Email and password required' });
     }
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Explicitly type user
+    const user: IUser | null = await User.findOne({ email }).lean<IUser>();
+
     if (!user) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Verify password
-    const isValid = await argon2.verify(user.password, password);
-    if (!isValid) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    const validPassword = await argon2.verify(user.password, password);
+    if (!validPassword) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Return success response
-    return NextResponse.json({ message: "Login successful", userId: user._id });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET!, {
+      expiresIn: '1h',
+    });
+
+    return res.status(200).json({ success: true, token });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 }

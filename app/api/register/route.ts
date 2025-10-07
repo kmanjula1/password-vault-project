@@ -1,29 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
-import dbConnect from "@/lib/db";
-import User from "@/models/User";
-import * as argon2 from "argon2";
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { dbConnect } from '@/lib/db';
+import User from '@/models/User';
 
-export async function POST(req: NextRequest) {
+type Data = {
+  success: boolean;
+  message?: string;
+  user?: {
+    id: string;
+    email: string;
+  };
+};
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Data>
+) {
+  await dbConnect();
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
+  const { email, password }: { email: string; password: string } = req.body;
+
   try {
-    await dbConnect();
-
-    const { email, password } = await req.json();
-    if (!email || !password) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'User already exists' });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
+    const newUser = await User.create({ email, password });
 
-    const isValid = await argon2.verify(user.password, password);
-    if (!isValid) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
-
-    return NextResponse.json({ message: "Login successful", userId: user._id });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return res.status(201).json({ 
+      success: true, 
+      user: { id: newUser._id.toString(), email: newUser.email } 
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 }
